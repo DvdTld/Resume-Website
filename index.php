@@ -1,6 +1,16 @@
 <?php
 session_start();
 
+// Demo users array (replace database)
+$demo_users = [
+    'admin@barebloom.com' => [
+        'password' => 'password123',
+        'first_name' => 'Admin',
+        'last_name' => 'User',
+        'email' => 'admin@barebloom.com'
+    ]
+];
+
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $response = array('success' => false, 'message' => '');
@@ -8,14 +18,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['action'])) {
         switch ($_POST['action']) {
             case 'login':
-                // Basic login validation
                 $email = filter_var($_POST['email'], FILTER_SANITIZE_EMAIL);
                 $password = $_POST['password'];
                 
-                // Simple demo authentication (replace with database logic)
-                if ($email === 'admin@barebloom.com' && $password === 'password123') {
+                if (isset($demo_users[$email]) && $demo_users[$email]['password'] === $password) {
                     $_SESSION['user_logged_in'] = true;
                     $_SESSION['user_email'] = $email;
+                    $_SESSION['user_name'] = $demo_users[$email]['first_name'] . ' ' . $demo_users[$email]['last_name'];
                     $response['success'] = true;
                     $response['message'] = 'Login successful!';
                 } else {
@@ -24,21 +33,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 break;
                 
             case 'signup':
-                // Basic signup validation
                 $firstName = htmlspecialchars($_POST['firstName']);
                 $lastName = htmlspecialchars($_POST['lastName']);
                 $email = filter_var($_POST['email'], FILTER_SANITIZE_EMAIL);
                 $password = $_POST['password'];
                 $confirmPassword = $_POST['confirmPassword'];
                 
-                if ($password !== $confirmPassword) {
+                if (isset($demo_users[$email])) {
+                    $response['message'] = 'Email already exists!';
+                } elseif ($password !== $confirmPassword) {
                     $response['message'] = 'Passwords do not match!';
                 } elseif (strlen($password) < 8) {
                     $response['message'] = 'Password must be at least 8 characters!';
                 } else {
-                    // In a real app, save to database
+                    // In a real app, this would save to database
+                    // For demo, we'll just simulate success
                     $response['success'] = true;
-                    $response['message'] = 'Account created successfully!';
+                    $response['message'] = 'Account created successfully! You can now login.';
                 }
                 break;
                 
@@ -46,11 +57,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $email = filter_var($_POST['email'], FILTER_SANITIZE_EMAIL);
                 
                 if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
-                    // In a real app, send email
                     $_SESSION['reset_email'] = $email;
                     $_SESSION['verification_code'] = '1234'; // Demo code
                     $response['success'] = true;
-                    $response['message'] = 'Password reset email sent!';
+                    $response['message'] = 'Password reset code sent to your email!';
                 } else {
                     $response['message'] = 'Please enter a valid email address!';
                 }
@@ -100,13 +110,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // Check if user is logged in
 $isLoggedIn = isset($_SESSION['user_logged_in']) && $_SESSION['user_logged_in'];
-
-// If logged in, redirect to dashboard (you can create this page)
-if ($isLoggedIn && !isset($_GET['logout'])) {
-    // Uncomment to redirect to dashboard
-    // header('Location: dashboard.php');
-    // exit;
-}
 
 // Handle logout
 if (isset($_GET['logout'])) {
@@ -522,6 +525,25 @@ if (isset($_GET['logout'])) {
             margin-bottom: 20px;
         }
 
+        .welcome-section {
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .user-avatar {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1rem;
+            color: white;
+            font-size: 2rem;
+            font-weight: bold;
+        }
+
         @keyframes float {
             0%, 100% { transform: translateY(0px); }
             50% { transform: translateY(-10px); }
@@ -550,7 +572,10 @@ if (isset($_GET['logout'])) {
             <div class="col-lg-6 p-5">
                 <?php if ($isLoggedIn): ?>
                 <!-- Dashboard/Welcome Page -->
-                <div class="text-center">
+                <div class="welcome-section">
+                    <div class="user-avatar">
+                        <?php echo strtoupper(substr($_SESSION['user_name'], 0, 1)); ?>
+                    </div>
                     <div class="logo-section justify-content-center">
                         <div class="logo-icon">
                             <svg viewBox="0 0 100 130" xmlns="http://www.w3.org/2000/svg">
@@ -570,8 +595,12 @@ if (isset($_GET['logout'])) {
                         <h2 class="logo-text">Bare Bloom</h2>
                     </div>
                     <h1 class="auth-title">Welcome!</h1>
-                    <p class="auth-subtitle">You are successfully logged in as <?php echo htmlspecialchars($_SESSION['user_email']); ?></p>
-                    <a href="?logout=1" class="btn btn-primary-custom">Logout</a>
+                    <p class="auth-subtitle">Hello, <?php echo htmlspecialchars($_SESSION['user_name']); ?>!<br>
+                    You are successfully logged in as <strong><?php echo htmlspecialchars($_SESSION['user_email']); ?></strong></p>
+                    <div class="d-grid gap-2">
+                        <a href="?logout=1" class="btn btn-primary-custom">Logout</a>
+                        <small class="text-muted mt-2">Session started: <?php echo date('Y-m-d H:i:s'); ?></small>
+                    </div>
                 </div>
                 <?php else: ?>
                 
@@ -598,19 +627,23 @@ if (isset($_GET['logout'])) {
                     
                     <h1 class="auth-title">Login</h1>
                     <p class="auth-subtitle">Login to access your account</p>
-                    <p class="text-muted small">Demo: Use <strong>admin@barebloom.com</strong> / <strong>password123</strong></p>
+                    <div class="alert alert-info">
+                        <strong>Demo Credentials:</strong><br>
+                        Email: <code>admin@barebloom.com</code><br>
+                        Password: <code>password123</code>
+                    </div>
                     
                     <div id="loginMessage"></div>
                     
                     <form id="loginForm">
                         <div class="mb-4">
                             <label for="loginEmail" class="form-label fw-semibold">Email</label>
-                            <input type="email" class="form-control" id="loginEmail" name="email" placeholder="" required>
+                            <input type="email" class="form-control" id="loginEmail" name="email" placeholder="Enter your email" required>
                         </div>
                         
                         <div class="mb-4 position-relative">
                             <label for="loginPassword" class="form-label fw-semibold">Password</label>
-                            <input type="password" class="form-control" id="loginPassword" name="password" placeholder="" required>
+                            <input type="password" class="form-control" id="loginPassword" name="password" placeholder="Enter your password" required>
                             <button type="button" class="password-toggle" onclick="togglePassword('loginPassword')">
                                 <i class="bi bi-eye"></i>
                             </button>
@@ -699,22 +732,22 @@ if (isset($_GET['logout'])) {
                         <div class="row g-3 mb-3">
                             <div class="col-6">
                                 <label for="firstName" class="form-label fw-semibold">First Name</label>
-                                <input type="text" class="form-control" id="firstName" name="firstName" placeholder="" required>
+                                <input type="text" class="form-control" id="firstName" name="firstName" placeholder="John" required>
                             </div>
                             <div class="col-6">
                                 <label for="lastName" class="form-label fw-semibold">Last Name</label>
-                                <input type="text" class="form-control" id="lastName" name="lastName" placeholder="" required>
+                                <input type="text" class="form-control" id="lastName" name="lastName" placeholder="Doe" required>
                             </div>
                         </div>
                         
                         <div class="mb-3">
                             <label for="signupEmail" class="form-label fw-semibold">Email Address</label>
-                            <input type="email" class="form-control" id="signupEmail" name="email" placeholder="" required>
+                            <input type="email" class="form-control" id="signupEmail" name="email" placeholder="john@example.com" required>
                         </div>
                         
                         <div class="mb-3 position-relative">
                             <label for="signupPassword" class="form-label fw-semibold">Password</label>
-                            <input type="password" class="form-control" id="signupPassword" name="password" placeholder="" required>
+                            <input type="password" class="form-control" id="signupPassword" name="password" placeholder="Create a strong password" required>
                             <button type="button" class="password-toggle" onclick="togglePassword('signupPassword')">
                                 <i class="bi bi-eye"></i>
                             </button>
@@ -722,7 +755,7 @@ if (isset($_GET['logout'])) {
                         
                         <div class="mb-4 position-relative">
                             <label for="confirmPassword" class="form-label fw-semibold">Confirm Password</label>
-                            <input type="password" class="form-control" id="confirmPassword" name="confirmPassword" placeholder="" required>
+                            <input type="password" class="form-control" id="confirmPassword" name="confirmPassword" placeholder="Confirm your password" required>
                             <button type="button" class="password-toggle" onclick="togglePassword('confirmPassword')">
                                 <i class="bi bi-eye"></i>
                             </button>
@@ -807,7 +840,7 @@ if (isset($_GET['logout'])) {
                     <form id="forgotPasswordForm">
                         <div class="mb-4">
                             <label for="forgotEmail" class="form-label fw-semibold">Email</label>
-                            <input type="email" class="form-control" id="forgotEmail" name="email" placeholder="" required>
+                            <input type="email" class="form-control" id="forgotEmail" name="email" placeholder="Enter your email address" required>
                         </div>
                         
                         <button type="submit" class="btn btn-primary-custom mb-4">Submit</button>
@@ -872,7 +905,9 @@ if (isset($_GET['logout'])) {
                     
                     <h1 class="auth-title">Verify Code</h1>
                     <p class="auth-subtitle">An authentication code has been sent to your email.</p>
-                    <p class="text-muted small">Demo code: <strong>1234</strong></p>
+                    <div class="alert alert-info">
+                        <strong>Demo code:</strong> <code>1234</code>
+                    </div>
                     
                     <div id="verifyMessage"></div>
                     
@@ -927,7 +962,7 @@ if (isset($_GET['logout'])) {
                     <form id="setPasswordForm">
                         <div class="mb-3 position-relative">
                             <label for="newPassword" class="form-label fw-semibold">Create Password</label>
-                            <input type="password" class="form-control" id="newPassword" name="password" placeholder="" required>
+                            <input type="password" class="form-control" id="newPassword" name="password" placeholder="Create a strong password" required>
                             <button type="button" class="password-toggle" onclick="togglePassword('newPassword')">
                                 <i class="bi bi-eye"></i>
                             </button>
@@ -959,7 +994,7 @@ if (isset($_GET['logout'])) {
                         
                         <div class="mb-4 position-relative">
                             <label for="confirmNewPassword" class="form-label fw-semibold">Confirm Password</label>
-                            <input type="password" class="form-control" id="confirmNewPassword" name="confirmPassword" placeholder="" required>
+                            <input type="password" class="form-control" id="confirmNewPassword" name="confirmPassword" placeholder="Confirm your password" required>
                             <button type="button" class="password-toggle" onclick="togglePassword('confirmNewPassword')">
                                 <i class="bi bi-eye"></i>
                             </button>
@@ -1251,6 +1286,8 @@ if (isset($_GET['logout'])) {
 
         function handleFormSubmit(formId, action, messageId, nextPage = null) {
             const form = document.getElementById(formId);
+            if (!form) return;
+            
             form.addEventListener('submit', function(e) {
                 e.preventDefault();
                 
@@ -1287,6 +1324,7 @@ if (isset($_GET['logout'])) {
                             submitBtn.innerHTML = submitBtn.getAttribute('data-original-text');
                             submitBtn.style.background = '#007bff';
                             submitBtn.disabled = false;
+                            this.reset();
                         }, 2000);
                     } else {
                         submitBtn.innerHTML = '<i class="bi bi-x-circle me-2"></i>Error';
